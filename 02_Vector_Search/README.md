@@ -8,7 +8,7 @@ PGVector) and ONNX-based embedders for lightweight deployments.
 - Code: [code/](code/)
 - Embeddings runtime: [embed/](embed/)
 - Full workshop recording: [Vector Databases: Embeddings, Semantic Search, and Hybrid Retrieval](https://www.youtube.com/watch?v=BC3NsRUNEIg)
-- Homework: [../cohorts/2026/02-vector-search/homework.md](../cohorts/2026/02-vector-search/homework.md)
+- Homework: [HOMEWORK.md](HOMEWORK.md)
 
 ---
 

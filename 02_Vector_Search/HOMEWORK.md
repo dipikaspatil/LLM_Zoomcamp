@@ -588,3 +588,27 @@ It's only rank 4 (last place) in vector search, and never better than rank 1 in 
 
 Hybrid search rewards documents that are consistently relevant across different retrieval signals, not just documents that happen to nail one method's particular scoring quirk.
 
+## Final Architecture diagram
+
+```mermaid
+flowchart LR
+    A[Lesson Pages]:::input --> B[Chunk]:::process
+    B --> C[ONNX Embedder]:::embed
+    B --> E[(Text Index)]:::index
+    C --> D[(Vector Index)]:::index
+    Q[Query]:::input --> C
+    Q --> E
+    D --> R[RRF Fusion]:::fusion
+    E --> R
+    R --> T[Top Results]:::output
+    T -.-> N["Pages are chunked, then embedded.<br/>The same query is searched two ways —<br/>by meaning (vector) and by exact words (text).<br/>RRF merges both ranked lists into one final result."]:::note
+
+    classDef input fill:#cfe8ff,stroke:#5b9bd5,color:#000
+    classDef process fill:#fff2cc,stroke:#d6b656,color:#000
+    classDef embed fill:#d5e8d4,stroke:#82b366,color:#000
+    classDef index fill:#e1d5e7,stroke:#9673a6,color:#000
+    classDef fusion fill:#f8cecc,stroke:#b85450,color:#000
+    classDef output fill:#d0e0e3,stroke:#3399cc,color:#000
+    classDef note fill:#ffffff,stroke:#999999,color:#333333,stroke-dasharray: 3 3
+```
+

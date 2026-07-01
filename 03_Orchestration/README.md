@@ -298,3 +298,63 @@ See [HOMEWORK.md](HOMEWORK.md) for the full question set and my worked answers/e
 - [Kestra Blueprints](https://kestra.io/blueprints)
 - [Google AI Studio](https://aistudio.google.com/apikey)
 - [Tavily](https://tavily.com)
+
+## Summary diagram 
+
+```mermaid
+flowchart TB
+    subgraph K["⚙️ Kestra — Orchestration Layer (YAML flow, triggers, secrets, logs)"]
+        direction LR
+        A["🗣️ Ungrounded LLM
+        ChatCompletion task"] --> B["📚 RAG
+        rag.ChatCompletion task"]
+        B --> C["🤖 Agent
+        AIAgent task + tools"]
+        C --> D["🕸️ Multi-Agent
+        AIAgent task → nested AIAgent"]
+    end
+
+    K --> Obs["📊 Every run tracked:
+    token usage, execution logs,
+    retries, history"]
+
+    K1["One versioned YAML flow —
+    same secrets, triggers &
+    scheduling for every task type"] -.-> K
+    A1["Answers purely from
+    training data —
+    vague or fabricated"] -.-> A
+    B1["Retrieves real docs/web
+    results first, then answers
+    grounded in that context"] -.-> B
+    C1["Given a GOAL, picks tools
+    (search, MCP), iterates,
+    decides when it's done"] -.-> C
+    D1["Analyst agent delegates a
+    sub-task to a specialist
+    agent, used as a tool"] -.-> D
+    Obs1["Same visibility regardless
+    of which AI pattern ran"] -.-> Obs
+
+    style K fill:#f5f5f5,stroke:#555,stroke-width:2px
+    style A fill:#fde2e2,stroke:#c0392b
+    style B fill:#fef3d0,stroke:#d4a017
+    style C fill:#dcf5dc,stroke:#27ae60
+    style D fill:#dce8fb,stroke:#2980b9
+    style Obs fill:#fef3d0,stroke:#d4a017
+    style K1 fill:#ffffff,stroke:#555,stroke-dasharray: 3 3
+    style A1 fill:#ffffff,stroke:#c0392b,stroke-dasharray: 3 3
+    style B1 fill:#ffffff,stroke:#d4a017,stroke-dasharray: 3 3
+    style C1 fill:#ffffff,stroke:#27ae60,stroke-dasharray: 3 3
+    style D1 fill:#ffffff,stroke:#2980b9,stroke-dasharray: 3 3
+    style Obs1 fill:#ffffff,stroke:#d4a017,stroke-dasharray: 3 3
+```
+
+Here's a one-line explanation for each box in the diagram:
+
+- ⚙️ Kestra (outer box) — the orchestration layer: everything inside runs as a task in one versioned YAML flow, with secrets, triggers, and scheduling handled consistently regardless of what the task does.
+- 🗣️ Ungrounded LLM (ChatCompletion task) — a single, plain call to an LLM with no external data attached; it answers purely from what it memorized in training, so it can be vague, outdated, or fabricated.
+- 📚 RAG (rag.ChatCompletion task) — retrieves real context first (ingested docs or a live web search), then generates an answer grounded in that retrieved content — same one-shot task, just with facts attached.
+- 🤖 Agent (AIAgent task + tools) — given a goal instead of a fixed prompt, it decides at runtime which tools to call (search, filesystem, etc.), how many times, and when the goal is satisfied.
+- 🕸️ Multi-Agent (AIAgent → nested AIAgent) — one agent (e.g. an analyst) delegates a sub-task to another specialized agent (e.g. a researcher), treating it exactly like any other callable tool.
+- 📊 Observability (Obs node) — regardless of which of the four task types ran, Kestra logs token usage, execution history, and retries the same way — orchestration gives you uniform visibility over all of them.

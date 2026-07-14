@@ -334,3 +334,41 @@ Hybrid search: tuning the RRF parameter k: 50 , mrr: 0.5926851851851856
 Hybrid search: tuning the RRF parameter k: 100 , mrr: 0.5926851851851856
 Hybrid search: tuning the RRF parameter k: 200 , mrr: 0.5926851851851856
 ```
+
+# Summary flow diagram
+```mermaid
+---
+title: How I Evaluated Search & RAG Retrieval
+---
+flowchart LR
+    subgraph MAIN[" "]
+    direction TB
+        A["Source documents<br/>(course lesson pages)"] --> B["Chunk into overlapping<br/>passages"]
+        B --> C["Generate synthetic<br/>questions with an LLM"]
+        C --> D["Ground truth dataset<br/>(question → expected source)"]
+
+        D --> E["Text search<br/>(keyword / TF-IDF)"]
+        D --> F["Vector search<br/>(embeddings)"]
+
+        F -.->|"results didn't match<br/>expected sources"| BUG["🔍 Debug:<br/>embedding model mismatch"]
+        BUG -->|"fix: align document &<br/>query embeddings to one model"| F2["Vector search,<br/>corrected"]
+
+        E --> G["Evaluate: Hit Rate<br/>(did the right doc appear?)"]
+        F2 --> H["Evaluate: Mean Reciprocal Rank<br/>(how high did it rank?)"]
+
+        G --> I["Hybrid search:<br/>Reciprocal Rank Fusion"]
+        H --> I
+        I --> J["Tune the fusion constant<br/>and compare outcomes"]
+    end
+
+    subgraph DESC[" "]
+    direction TB
+        NOTE["📝 About this diagram<br/><br/>This traces the evaluation pipeline end to end:<br/>turning source documents into a labeled<br/>ground-truth dataset, running it through two<br/>retrieval methods, scoring each with standard<br/>IR metrics, then fusing both and tuning the fusion.<br/><br/>🟧 marks a real debugging moment — a mismatch<br/>between how documents and queries were embedded.<br/><br/>🟩 marks the final tuning step, where testing<br/>multiple settings surfaced a result that ran<br/>counter to my initial assumption."]
+    end
+
+    MAIN ~~~ DESC
+
+    style BUG fill:#f96,stroke:#333,stroke-width:1px
+    style J fill:#9f6,stroke:#333,stroke-width:1px
+    style NOTE fill:#f5f5f5,stroke:#999,stroke-width:1px
+```

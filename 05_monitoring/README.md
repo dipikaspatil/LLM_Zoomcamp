@@ -1478,3 +1478,52 @@ docker-compose down
 
 *Reference README covering all 14 lessons of DataTalksClub LLM Zoomcamp
 Module 5 — Monitoring. Source: [05-monitoring/lessons](https://github.com/DataTalksClub/llm-zoomcamp/tree/main/05-monitoring/lessons).*
+
+# Summary flow diagram
+
+```mermaid
+flowchart LR
+    subgraph OFFLINE["Offline Evaluation — before deployment"]
+        direction TB
+        FIXED["Fixed test set,<br/>known-good answers"] --> METRICS1["Hit Rate · MRR ·<br/>LLM-as-judge vs ground truth"]
+    end
+
+    OFFLINE ==>|deploy to real users| ONLINE
+
+    subgraph ONLINE["Online Monitoring — after deployment"]
+        direction TB
+        REQ["Real user request<br/>(no ground truth available)"] --> CAP
+
+        subgraph CAP["Capture"]
+            direction LR
+            EXEC["Execution signals<br/>latency · tokens · cost"]
+            QUAL["Quality signals<br/>user feedback · LLM judge"]
+        end
+
+        CAP --> SAMPLE{"At scale:<br/>sample, don't store 100%"}
+        SAMPLE --> STORE[("Store<br/>a representative slice")]
+        STORE --> VIZ["Visualize<br/>trends · distributions · alerts"]
+        VIZ --> ACT["Act<br/>fix prompt, retrieval, or model"]
+        ACT -.->|informs next request| REQ
+    end
+
+    ONLINE ~~~ DESC["📝 What this shows<br/>─────────────<br/>Offline eval checks quality<br/>against a fixed, known-answer<br/>test set — before real users<br/>touch the system.<br/><br/>Online monitoring runs a loop<br/>instead: capture signals, store<br/>them, visualize the patterns,<br/>then act — feeding back into<br/>the next request.<br/><br/>⚠️ At real production volume,<br/>storing and judging every<br/>single call stops being cost-<br/>effective. Teams sample<br/>(e.g. 1 in 10) and move<br/>capture off the request path<br/>into a queue, processed async."]
+
+    classDef offlineBox fill:#e7ecf3,stroke:#7d8ba3,color:#2b3648;
+    classDef reqBox fill:#fff4ec,stroke:#e0954f,color:#4a2f14;
+    classDef captureBox fill:#eaf7f4,stroke:#2c9c86,color:#0f3f36;
+    classDef sampleBox fill:#fdecea,stroke:#c94f3f,color:#5c2018;
+    classDef storeBox fill:#2b3648,stroke:#2b3648,color:#ffffff;
+    classDef vizBox fill:#ffe3cf,stroke:#d97a2e,color:#4a2410;
+    classDef actBox fill:#dff0d8,stroke:#5a9c4d,color:#1f3a17;
+    classDef noteBox fill:#fbfaf7,stroke:#c9c2b3,color:#3a352b,stroke-dasharray: 4 3;
+
+    class FIXED,METRICS1 offlineBox;
+    class REQ reqBox;
+    class EXEC,QUAL captureBox;
+    class SAMPLE sampleBox;
+    class STORE storeBox;
+    class VIZ vizBox;
+    class ACT actBox;
+    class DESC noteBox;
+```

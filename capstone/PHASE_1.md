@@ -240,7 +240,7 @@ Then open http://localhost:3001 in your browser, pick the Knowledge section, and
 
 If you want to test the World Cup section too, try something like "Who won the World Cup in 2026?" — though note that one exercises football_api.py against the live football-data.org API, so it'll also be your first real test of the rate-limit handling we built.
 
-![Phase1 World Cup Section Testing](../capstone/images/Phase1_Test_World_cup_Section.pnge)
+![Phase1 World Cup Section Testing](../capstone/images/Phase1_Test_World_cup_Section.png)
 
 # Evaluation — ground-truth Q&A set, retrieval metrics, LLM-as-judge script
 

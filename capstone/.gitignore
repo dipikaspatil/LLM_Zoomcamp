@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Environment variables / API keys — un-ignore the template (no secrets, documents required vars)
+.env
+!.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+
+# Qdrant local data (created if you ever ran Qdrant with a bind-mounted volume)
+qdrant_storage/
+
+# macOS
+.DS_Store

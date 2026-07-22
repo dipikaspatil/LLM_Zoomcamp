@@ -1,0 +1,22 @@
+# Web framework + server
+fastapi # web framework (defines your /chat route
+uvicorn[standard] # actual server process that runs it. [standard] pulls in extras like better performance and auto-reload during dev.
+sse-starlette # makes returning a Server-Sent-Events stream from a FastAPI endpoint straightforward (EventSourceResponse) instead of hand-rolling the SSE wire format yourself.
+
+# Config
+pydantic-settings # pydantic-settings + python-dotenv — this is what makes the Settings class in config.py read from .env automatically.
+python-dotenv
+
+# HTTP client for football-data.org
+httpx # the async HTTP client football_api.py uses to call football-data.org.
+
+# Agent orchestration
+langgraph # graph orchestration layer on top
+langchain-core # gives you message types (HumanMessage, etc.) and the @tool decorator;
+langchain-openai # gives you the ChatOpenAI wrapper
+
+# Vector DB client
+qdrant-client # official Python client to talk to your Qdrant container (create collections, upsert vectors, search).
+
+# text-splitting library for chunking
+langchain-text-splitters

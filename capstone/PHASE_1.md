@@ -240,4 +240,87 @@ Then open http://localhost:3001 in your browser, pick the Knowledge section, and
 
 If you want to test the World Cup section too, try something like "Who won the World Cup in 2026?" — though note that one exercises football_api.py against the live football-data.org API, so it'll also be your first real test of the rate-limit handling we built.
 
-![Phase1 World Cup Section Testing](../capstone/images/Phase1_Test_World_cup_Section.png)
+![Phase1 World Cup Section Testing](../capstone/images/Phase1_Test_World_cup_Section.pnge)
+
+# Evaluation — ground-truth Q&A set, retrieval metrics, LLM-as-judge script
+
+Let's build this as one cohesive piece since retrieval metrics and LLM-as-judge both need the same ground-truth set and reuse the same underlying tools.
+
+Design decision worth explaining upfront: the eval script reuses the actual production knowledge_agent_node function to generate answers, rather than reimplementing the RAG logic separately. This matters — if we wrote a second, slightly different version of the retrieval+prompt logic just for testing, the eval could pass while the real app behaves differently (eval/production drift). Also: I noticed knowledge_agent_node calls search_rag() without a section filter (searches the whole knowledge base, not just one section) — so the eval matches that exact behavior rather than testing a hypothetical filtered version that isn't what actually runs.
+
+## How to test
+Activate the venv, make sure Qdrant is up and the knowledge base is ingested, then `python eval/run_eval.py`
+
+## Output
+```shell
+capstone % python eval/run_eval.py
+Loaded 16 ground-truth questions
+
+=== Retrieval Evaluation ===
+Hit Rate: 100.00%
+MRR:      1.000
+
+=== Answer Quality Evaluation (LLM-as-judge) ===
+Avg Relevance:    5.00 / 5
+Avg Faithfulness: 5.00 / 5
+
+Per-question results:
+- [5/5 rel, 5/5 faith] What is Total Football?
+  The answer directly addresses the question about Total Football, accurately summarizing its definition, origins, and key figures, all of which are supported by the provided context.
+- [5/5 rel, 5/5 faith] Who popularized Total Football and in what era?
+  The answer directly addresses the question by naming Rinus Michels and the era of the early-to-mid 1970s, and it accurately includes Johan Cruyff as a key figure.
+- [5/5 rel, 5/5 faith] How did Total Football influence later playing styles?
+  The answer directly addresses how Total Football influenced later playing styles, specifically mentioning tiki-taka and the role of Johan Cruyff, which is well-supported by the provided context.
+- [5/5 rel, 5/5 faith] What is tiki-taka?
+  The answer accurately defines tiki-taka and incorporates key elements from the provided context, demonstrating a clear understanding of the style.
+- [5/5 rel, 5/5 faith] What is a false 9 in football?
+  The answer directly defines a false 9 and accurately references its role in the tiki-taka system, aligning perfectly with the provided context.
+- [5/5 rel, 5/5 faith] What criticism is commonly made of tiki-taka?
+  The answer directly addresses the criticism of tiki-taka as being overly cautious and susceptible to low-block defenses, accurately reflecting the provided context.
+- [5/5 rel, 5/5 faith] What is gegenpressing?
+  The answer directly addresses the question about gegenpressing and accurately reflects the information provided in the context.
+- [5/5 rel, 5/5 faith] Which manager is most associated with gegenpressing?
+  The answer directly addresses the question by naming Jürgen Klopp as the manager associated with gegenpressing and is fully supported by the provided context.
+- [5/5 rel, 5/5 faith] What formation uses wing-backs and has roots in Italian catenaccio?
+  The answer directly addresses the question by correctly identifying the 3-5-2 / 5-3-2 formation as using wing-backs and having roots in Italian catenaccio, fully supported by the provided context.
+- [5/5 rel, 5/5 faith] How often is the World Cup held?
+  The answer directly addresses the frequency of the World Cup and accurately references the context provided.
+- [5/5 rel, 5/5 faith] How many teams will play in the 2026 World Cup?
+  The answer directly addresses the question about the number of teams in the 2026 World Cup and is fully supported by the provided context.
+- [5/5 rel, 5/5 faith] How do national teams qualify for the World Cup?
+  The answer directly addresses how national teams qualify for the World Cup and accurately reflects the information provided in the context.
+- [5/5 rel, 5/5 faith] Which country has won the most World Cup titles?
+  The answer directly addresses the question and is fully supported by the provided context.
+- [5/5 rel, 5/5 faith] What happened in the 1986 World Cup quarterfinal between Argentina and England?
+  The answer directly addresses the question about the 1986 World Cup quarterfinal and accurately reflects the context provided.
+- [5/5 rel, 5/5 faith] What was notable about the 2014 World Cup semifinal?
+  The answer directly addresses the question about the notable aspect of the 2014 World Cup semifinal and is fully supported by the provided context.
+- [5/5 rel, 5/5 faith] How did Argentina win the 2022 World Cup final?
+  The answer directly addresses how Argentina won the final and is fully supported by the provided context.
+  ```
+
+# What I Learned (Phase 1)
+
+## LangGraph
+- A LangGraph app is built from three things: a **State** (a shared data structure passed between steps), **nodes** (plain functions that read state and return updates), and **edges** (which decide what runs next — including **conditional edges**, which pick the next node based on the current state, similar to a `switch`/`if` step in a workflow tool).
+- A node never changes state directly — it returns a dict of only the fields that changed, and LangGraph merges that back in.
+- `astream_events()` streams fine-grained events as the graph runs — but it fires events for **everything running inside a node**, not just the node's own final output. I had to explicitly check the event was a plain dict (not a nested LLM call's raw output) before treating it as the node's real result.
+- Any code path that returns an answer without calling the LLM (like a router rejecting a question, or a graceful fallback) produces no token-streaming events — the streaming layer needs an explicit way to handle "answer already decided, nothing to stream."
+
+## RAG and Evaluation
+- Chunking matters: short, self-contained paragraphs under clear headers retrieve much better than long unstructured text, because a chunk needs to make sense on its own once pulled out of context.
+- Retrieval and generation are two separate things that can each fail independently. I measured them separately: **Hit Rate** (did retrieval find the right document at all?) and **MRR** (how high did it rank?) for retrieval, and an **LLM-as-judge** score (relevance + faithfulness) for the generated answer.
+- The eval pipeline caught a real bug I didn't notice by testing manually: two knowledge base files had never actually been created, so retrieval silently failed for exactly those topics. The failure pattern (two whole files failing completely, not scattered misses) was the clue — this is why running a systematic eval matters more than spot-checking a few questions by hand.
+
+## Working with a Real, Rate-Limited API
+- Free API tiers often have real restrictions you can't discover from documentation alone — football-data.org returns HTTP 403 (not empty data) when asking for a season outside the free plan's coverage. The fix is to catch that specific error and respond honestly, not treat it as an unexpected crash.
+- Response headers can tell you your remaining rate-limit quota in real time — checking them proactively (instead of guessing a fixed wait time) is more reliable.
+
+## Prompt Design
+- A cheaper/smaller model (`gpt-4o-mini`) can fail to find a fact that's stated clearly in a long prompt, even when it's spelled out multiple ways. I confirmed this by testing the exact same prompt directly in ChatGPT, which got it right — proving the issue was model capability, not the prompt itself.
+- Two different fixes for that kind of problem: upgrade to a stronger model, or reduce how much irrelevant data is in the prompt in the first place. Both work; pre-filtering is usually cheaper long-term.
+- Don't make the LLM compute something code can compute reliably (like "who won" from a score) — state the answer explicitly and let the LLM explain it, not derive it.
+
+## Debugging Practice
+- When a fix "doesn't work," the first thing to check is whether it was actually applied and the server restarted — several bugs in this project were really just a forgotten `docker compose up --build` or a copy-pasted snippet that didn't fully replace the old code.
+- Comparing the exact same input against a different, trusted system (like pasting a prompt straight into ChatGPT) is a fast way to tell whether a bug is in your code or in the model's behavior.

@@ -12,18 +12,74 @@ For a working end-to-end slice, I'd build in this order — data first, then rea
 
 # TODO
 
-- Scaffold backend/frontend repo structure
-- Draft requirements.txt and .env.example
-- Get football-data.org API key and verify access
-- Build football_api.py tools with rate-limit-aware requests
-- Build knowledge base ingestion (chunk + embed + load into Qdrant)
-- Build RAG search tool (query-time retrieval from Qdrant)
-- Build LangGraph agent graph (router + World Cup + Knowledge agents)
-- Build FastAPI backend with SSE streaming /chat endpoint
-- Build Next.js chat UI with section picker
-- Build evaluation pipeline (ground truth, retrieval metrics, LLM-as-judge)
-- Write Docker Compose setup for full stack
-- Test full backend pipeline end-to-end
+- Draft Phase 2 flow diagram (Mermaid) - DONE
+- Scaffold backend/frontend repo structure - DONE
+- Draft requirements.txt and .env.example - DONE
+- Get football-data.org API key and verify access - DONE
+- Build football_api.py tools with rate-limit-aware requests - DONE
+- Build knowledge base ingestion (chunk + embed + load into Qdrant) - DONE
+- Build RAG search tool (query-time retrieval from Qdrant) - DONE
+- Build LangGraph agent graph (router + World Cup + Knowledge agents) - DONE
+- Build FastAPI backend with SSE streaming /chat endpoint - DONE
+- Build Next.js chat UI with section picker - DONE
+- Build evaluation pipeline (ground truth, retrieval metrics,  LLM-as-judge) - DONE
+- Write Docker Compose setup for full stack - DONE
+- Test full backend pipeline end-to-end - DONE
+
+# Phase 1 flow diagram 
+
+```mermaid
+flowchart LR
+    subgraph Summary[Summary]
+        direction TD
+        S1["User picks a section and asks a question.<br/>A router checks the question fits that section, then<br/>the matching agent answers — using live data when<br/>available, or the RAG knowledge base as a fallback<br/>(e.g. for historical World Cup seasons) — through an<br/>LLM, streamed back to the user in real time."]
+    end
+
+    subgraph Flow[Phase 1 Request Flow]
+        direction TD
+        A[User asks a question<br/>in chosen section] --> B{Router checks<br/>section match}
+        B -- no match --> C[Ask user to pick<br/>right section]
+        B -- World Cup --> D[World Cup Agent]
+        B -- Knowledge --> E[Knowledge Agent]
+        D -- live data --> F[football-data.org]
+        D -- historical fallback --> G[Qdrant RAG]
+        E --> G
+        F --> H[LLM generates answer]
+        G --> H
+        H --> I[Answer streams<br/>back to UI]
+    end
+
+    subgraph Legend[Legend]
+        direction TD
+        L1[User-facing steps]
+        L2[Router decision]
+        L3[Agents]
+        L4[Data sources]
+        L5[LLM generation]
+    end
+
+    Summary ~~~ Flow
+    Flow ~~~ Legend
+
+    classDef ui fill:#4F8EF7,color:#fff,stroke:#2f5fb3
+    classDef router fill:#F7B84F,color:#1a1a1a,stroke:#c98f2e
+    classDef agent fill:#7ED17E,color:#12351a,stroke:#3f8f4a
+    classDef data fill:#B98CF7,color:#1a1a1a,stroke:#7c4fc9
+    classDef llm fill:#F76C6C,color:#fff,stroke:#c94040
+    classDef summary fill:#F0F0F0,color:#1a1a1a,stroke:#999999
+
+    class A,I ui
+    class B,C router
+    class D,E agent
+    class F,G data
+    class H llm
+    class L1 ui
+    class L2 router
+    class L3 agent
+    class L4 data
+    class L5 llm
+    class S1 summary
+```
 
 # Repo structure
 
@@ -324,57 +380,3 @@ Per-question results:
 ## Debugging Practice
 - When a fix "doesn't work," the first thing to check is whether it was actually applied and the server restarted — several bugs in this project were really just a forgotten `docker compose up --build` or a copy-pasted snippet that didn't fully replace the old code.
 - Comparing the exact same input against a different, trusted system (like pasting a prompt straight into ChatGPT) is a fast way to tell whether a bug is in your code or in the model's behavior.
-
-# Phase 1 flow diagram 
-```mermaid
-flowchart LR
-    subgraph Summary[Summary]
-        direction TD
-        S1["User picks a section and asks a question.<br/>A router checks the question fits that section, then<br/>the matching agent answers — using live data when<br/>available, or the RAG knowledge base as a fallback<br/>(e.g. for historical World Cup seasons) — through an<br/>LLM, streamed back to the user in real time."]
-    end
-
-    subgraph Flow[Phase 1 Request Flow]
-        direction TD
-        A[User asks a question<br/>in chosen section] --> B{Router checks<br/>section match}
-        B -- no match --> C[Ask user to pick<br/>right section]
-        B -- World Cup --> D[World Cup Agent]
-        B -- Knowledge --> E[Knowledge Agent]
-        D -- live data --> F[football-data.org]
-        D -- historical fallback --> G[Qdrant RAG]
-        E --> G
-        F --> H[LLM generates answer]
-        G --> H
-        H --> I[Answer streams<br/>back to UI]
-    end
-
-    subgraph Legend[Legend]
-        direction TD
-        L1[User-facing steps]
-        L2[Router decision]
-        L3[Agents]
-        L4[Data sources]
-        L5[LLM generation]
-    end
-
-    Summary ~~~ Flow
-    Flow ~~~ Legend
-
-    classDef ui fill:#4F8EF7,color:#fff,stroke:#2f5fb3
-    classDef router fill:#F7B84F,color:#1a1a1a,stroke:#c98f2e
-    classDef agent fill:#7ED17E,color:#12351a,stroke:#3f8f4a
-    classDef data fill:#B98CF7,color:#1a1a1a,stroke:#7c4fc9
-    classDef llm fill:#F76C6C,color:#fff,stroke:#c94040
-    classDef summary fill:#F0F0F0,color:#1a1a1a,stroke:#999999
-
-    class A,I ui
-    class B,C router
-    class D,E agent
-    class F,G data
-    class H llm
-    class L1 ui
-    class L2 router
-    class L3 agent
-    class L4 data
-    class L5 llm
-    class S1 summary
-```

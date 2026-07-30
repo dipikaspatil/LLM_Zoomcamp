@@ -209,3 +209,6 @@ This keeps predictions reproducible and honest — the LLM's job is to explain, 
 ## Data Sources (To Be Finalized)
 
 - Knowledge base content: starting with tactical concepts and World Cup history, rest marked TODO
+
+## Future work - 
+- Smart tool selection (LLM-driven tool calling): agents currently fetch all relevant data sources upfront every time (standings, schedule, scorers), regardless of whether the question actually needs them — wasteful once there are more data sources per agent. Future upgrade: let the LLM decide which specific tools to call based on the question, instead of always fetching everything proactively in code.

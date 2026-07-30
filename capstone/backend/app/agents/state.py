@@ -1,13 +1,13 @@
 """
 The shared state that flows through every node in the graph.
-Kestra equivalent: the flow's execution context/variables — except here
-it's an explicit, typed Python structure instead of implicit YAML variables.
 """
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, Annotated
+from langgraph.graph.message import add_messages
 
 
 class GraphState(TypedDict):
-    question: str                    # the user's raw question
-    section: str                     # section picked in the UI: "world_cup" or "knowledge"
-    section_valid: Optional[bool]    # filled in by the router node
-    answer: Optional[str]            # final answer text — set by the router (on mismatch) or an agent node
+    question: str
+    section: Optional[str]  # now determined by the classifier node, not sent by the frontend
+    section_valid: Optional[bool]
+    answer: Optional[str]
+    messages: Annotated[list, add_messages]

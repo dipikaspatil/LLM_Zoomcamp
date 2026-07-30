@@ -1,56 +1,50 @@
 """
-The actual LangGraph graph — wires the router and both agents into one
-runnable pipeline.
+The actual LangGraph graph — wires the section classifier and all agents
+into one runnable pipeline.
 """
 from langgraph.graph import StateGraph, START, END
 
 from app.agents.state import GraphState
-from app.agents.router import check_section_match
+from app.agents.router import classify_section
 from app.agents.world_cup_agent import world_cup_agent_node
 from app.agents.knowledge_agent import knowledge_agent_node
+from app.agents.club_football_agent import club_football_agent_node
 
 
-def route_after_check(state: GraphState) -> str:
-    """
-    Conditional edge function: LangGraph calls this right after the router
-    node finishes. Whatever string it returns must be a key in the path_map
-    passed to add_conditional_edges() below — that's how LangGraph decides
-    which node runs next. Equivalent to the condition expression in a
-    Kestra `switch` task.
-    """
+def route_after_classification(state: GraphState) -> str:
     if not state["section_valid"]:
-        return "mismatch"       # router already wrote the mismatch message into "answer"
-    return state["section"]     # "world_cup" or "knowledge" — routes straight to the matching agent
+        return "none"
+    return state["section"]
 
 
-def build_graph():
+def build_graph(checkpointer):
+    """
+    Takes the checkpointer as a parameter instead of creating one
+    internally, so the graph-building logic is reusable regardless of
+    which checkpointer backend is wired in (Postgres in production).
+    """
     graph = StateGraph(GraphState)
 
-    # Register nodes: just associates a name with the function that implements it
-    graph.add_node("check_section_match", check_section_match)
+    graph.add_node("classify_section", classify_section)
     graph.add_node("world_cup", world_cup_agent_node)
     graph.add_node("knowledge", knowledge_agent_node)
+    graph.add_node("club_football", club_football_agent_node)
 
-    # Every run starts at the router
-    graph.add_edge(START, "check_section_match")
+    graph.add_edge(START, "classify_section")
 
-    # Branch based on route_after_check()'s return value
     graph.add_conditional_edges(
-        "check_section_match",
-        route_after_check,
+        "classify_section",
+        route_after_classification,
         path_map={
-            "mismatch": END,          # answer already set, nothing left to do
+            "none": END,
             "world_cup": "world_cup",
             "knowledge": "knowledge",
+            "club_football": "club_football",
         },
     )
 
-    # Both agents are terminal — once they produce an answer, the graph ends
     graph.add_edge("world_cup", END)
     graph.add_edge("knowledge", END)
+    graph.add_edge("club_football", END)
 
-    return graph.compile()  # validates the graph (all edges point to real nodes) and returns a runnable
-
-
-# Compiled once at import time, reused across every request
-soccermind_graph = build_graph()
+    return graph.compile(checkpointer=checkpointer)

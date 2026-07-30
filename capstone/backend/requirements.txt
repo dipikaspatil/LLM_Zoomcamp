@@ -20,3 +20,6 @@ qdrant-client # official Python client to talk to your Qdrant container (create 
 
 # text-splitting library for chunking
 langchain-text-splitters
+
+langgraph-checkpoint-postgres
+psycopg[binary,pool]

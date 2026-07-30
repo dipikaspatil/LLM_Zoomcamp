@@ -52,3 +52,9 @@ async def get_schedule(
 
 async def get_live_matches(competition_code: str = "WC") -> dict:
     return await _get(f"/competitions/{competition_code}/matches", params={"status": "LIVE"})
+
+async def get_top_scorers(competition_code: str = "WC", season: str | None = None, limit: int = 10) -> dict:
+    params = {"limit": str(limit)}
+    if season:
+        params["season"] = season
+    return await _get(f"/competitions/{competition_code}/scorers", params=params)

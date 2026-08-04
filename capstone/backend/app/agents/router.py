@@ -18,12 +18,27 @@ from app.agents.state import GraphState
 SECTION_DESCRIPTIONS = {
     "world_cup": (
         "Live matches, standings, schedules, and results for the FIFA World Cup — "
-        "for any tournament year, past or present."
+        "for any tournament year, past or present. A question fits this section "
+        "regardless of whether that tournament's year is before or after today's "
+        "date — never reject a question because of the tournament's year."
     ),
     "club_football": (
         "Club football competitions that run year-round: Premier League, La Liga, "
         "Bundesliga, Serie A, Ligue 1, and the Champions League — standings, "
-        "results, and team form."
+        "results, and team form. Fits regardless of season year, past or present."
+    ),
+    "prediction": (
+        "Predicting the outcome of a SPECIFIC match between two named teams "
+        "(e.g. 'who will win Arsenal vs Chelsea?'). Does NOT cover predicting "
+        "an entire tournament's winner or general 'who's the best team' "
+        "questions — only a specific matchup between two named teams."
+    ),
+    "news": (
+        "Recent news, transfer rumors, injury updates, or other current "
+        "happenings about a specific club or player — 'what's the latest "
+        "on X' style questions. Does NOT cover standings, schedules, or "
+        "results (that's club_football/world_cup), and does NOT cover "
+        "general tactics or history (that's knowledge)."
     ),
     "knowledge": "General football knowledge: tactics, concepts, and World Cup history.",
 }
@@ -33,10 +48,11 @@ LEAGUE_PATTERN = (
     r"premier league|\bepl\b|la liga|primera division|bundesliga|serie a|"
     r"ligue 1|ligue une|champions league|\bucl\b"
 )
-
+PREDICTION_PATTERN = r"who will win|who('s| is) going to win|who wins|\bpredict\b|likely to win|chances? of winning"
+NEWS_PATTERN = r"transfer (news|rumou?r|talk)|injury update|latest on|what'?s happening with|\bnews\b.*\b(team|club|player|football|soccer)\b"
 
 class SectionClassification(BaseModel):
-    section: Literal["world_cup", "club_football", "knowledge", "none"] = Field(
+    section: Literal["world_cup", "club_football", "knowledge", "prediction", "news", "none"] = Field(
         description="Which section best fits the question, or 'none' if it isn't about football at all."
     )
     reason: str = Field(description="One short sentence explaining the decision.")
@@ -45,30 +61,31 @@ class SectionClassification(BaseModel):
 _llm = ChatOpenAI(model="gpt-4o-mini", api_key=settings.OPENAI_API_KEY, temperature=0)
 _classifier_llm = _llm.with_structured_output(SectionClassification)
 
-
 def _fast_path_classify(state: GraphState) -> str | None:
     """
     Deterministic shortcut for the common, unambiguous cases — skips the LLM
-    entirely, both for speed and because the LLM has proven specifically
-    unreliable at judging whether a World Cup year "has happened yet."
-
-    Only checks the CURRENT question, not conversation history — a fast
-    path that also scanned history could incorrectly inherit an unrelated
-    topic from earlier in the conversation (e.g. "explain total football"
-    right after a run of Premier League questions). Genuine follow-ups that
-    need history (like "how did they get there?") are handled correctly by
-    the LLM classifier below instead, since recognizing "this is still
-    about the same topic" is ordinary contextual reasoning — a different,
-    much easier task than the narrow date-judgment the fast-path exists to avoid.
+    entirely, both for speed and because the LLM has proven unreliable at
+    specific narrow classification judgments (this one: distinguishing a
+    prediction question from a factual club-football question, even when
+    the section description gives this exact example). Only checks the
+    CURRENT question, not history — see the earlier "Explain Total Football"
+    misrouting bug for why history-scanning in the fast-path is unsafe.
     """
-    if re.search(WORLD_CUP_PATTERN, state["question"], re.IGNORECASE):
+    text = state["question"]
+    if re.search(PREDICTION_PATTERN, text, re.IGNORECASE):
+        return "prediction"
+    if re.search(NEWS_PATTERN, text, re.IGNORECASE):
+        return "news"
+    if re.search(WORLD_CUP_PATTERN, text, re.IGNORECASE):
         return "world_cup"
-    if re.search(LEAGUE_PATTERN, state["question"], re.IGNORECASE):
+    if re.search(LEAGUE_PATTERN, text, re.IGNORECASE):
         return "club_football"
     return None
 
 async def classify_section(state: GraphState) -> dict:
     fast_path = _fast_path_classify(state)
+    # TODO: replace with logger.debug() — see Future work - Structured logging / observability from Phase_0.md
+    # print(f"[DEBUG] question={state['question']!r} fast_path={fast_path!r}")
     if fast_path:
         return {"section": fast_path, "section_valid": True}
 

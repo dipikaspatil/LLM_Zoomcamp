@@ -18,8 +18,7 @@ from app.config import settings
 from app.agents.graph import build_graph
 from app.tools.conversations import ensure_conversations_table, touch_conversation
 
-VALID_NODES = ("world_cup", "knowledge", "club_football")
-
+VALID_NODES = ("world_cup", "knowledge", "club_football", "prediction", "news")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -114,6 +113,8 @@ async def chat(request: Request, chat_request: ChatRequest):
             node_name = event.get("metadata", {}).get("langgraph_node")
 
             if kind == "on_chat_model_stream" and node_name in VALID_NODES:
+                if "extraction_only" in event.get("tags", []):
+                    continue
                 chunk = event["data"]["chunk"]
                 if chunk.content:
                     tokens_streamed = True

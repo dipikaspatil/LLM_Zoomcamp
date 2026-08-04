@@ -210,5 +210,20 @@ This keeps predictions reproducible and honest — the LLM's job is to explain, 
 
 - Knowledge base content: starting with tactical concepts and World Cup history, rest marked TODO
 
-## Future work - 
-- Smart tool selection (LLM-driven tool calling): agents currently fetch all relevant data sources upfront every time (standings, schedule, scorers), regardless of whether the question actually needs them — wasteful once there are more data sources per agent. Future upgrade: let the LLM decide which specific tools to call based on the question, instead of always fetching everything proactively in code.
+## Future work - Smart tool selection (LLM-driven tool calling)
+Agents currently fetch all relevant data sources upfront every time (standings, schedule, scorers), regardless of whether the question actually needs them — wasteful once there are more data sources per agent. Future upgrade: let the LLM decide which specific tools to call based on the question, instead of always fetching everything proactively in code.
+
+## **Tactical Analyst — descoped (2026-07-23):** 
+
+Originally planned as a dedicated agent/section. Design review found the differentiation from Knowledge Agent was too thin once we verified (via direct API testing) that detailed per-match statistic (possession, shots) aren't available on any free tier for historical matches — without that, "tactical analysis" reduced to RAG-over-concepts with a different prompt persona, which didn't justify a separate agent/section/router entry. Folded the "explain why, not just what" framing directly into Knowledge Agent's prompt instead.
+
+## Future work -  Structured logging / observability — replace debug prints with configurable logger
+
+- Python's built-in logging module, one logger = logging.getLogger(__name__) per file, replacing each print(...) with logger.debug(...) at the same call sites — same information, just now filterable.
+- One central config (e.g. app/logging_config.py, wired up in main.py's startup) that reads a LOG_LEVEL env var (default INFO, set to DEBUG locally when you need the verbose output) — this is exactly the runtime on/off switch you're describing, no code changes needed to toggle it.
+- Each LangGraph node logs at natural points (fast-path decision, extraction result, fetch result) the same way your current debug prints do — just via logger.debug(f"...") instead.
+- Optional later step, since you already have Postgres+Grafana in your stack and did the Logfire→DuckDB dlt workshop recently: structured (JSON) log output could eventually feed the same observability story instead of being a separate concern — worth keeping in mind as a natural connection point, not something to build now.
+
+## **Fantasy Assistant — descoped (2026-07-31):**
+
+Originally planned as a dedicated agent (Phase 3 scope, per Roadmap above). Descoped after the same "verify data availability before designing" discipline used for Tactical Analyst: Fantasy Assistant's spec fundamentally requires player-level data — injuries, expected minutes, individual player form — but football-data.org's free tier has never shown any sign of providing this; every tool built so far (`football_api.py`) only ever pulls team-level standings, results, and basic top-scorer stats, nothing at the player-status granularity a fantasy assistant needs to be useful. Without real player-level data, a Fantasy Assistant would either have to fabricate plausible-sounding injury/rotation info (directly against the project's core "never let the LLM invent facts" principle, see Prediction Agent design) or be so thin it wouldn't justify a dedicated agent — same shape of problem, same conclusion, as Tactical Analyst. No workaround pursued since no free-tier API surfaced player-level status data during Phase 3 research. If a suitable data source is found later, this could be revisited as future work rather than reopened as in-scope Phase 3 work.
